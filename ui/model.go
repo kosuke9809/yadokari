@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/kosuke9809/yadokari/sandbox"
 )
 
@@ -138,8 +139,46 @@ func (m Model) showToast(msg string) (Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	// Task 11 で本実装
-	return "yadokari loading...\n"
+	if m.width == 0 {
+		return "yadokari loading...\n"
+	}
+
+	lw := m.listWidth()
+	rw := m.rightWidth()
+	dh := m.detailHeight()
+	sh := m.streamHeight()
+
+	listPane := lipgloss.NewStyle().
+		Width(lw).
+		Height(m.height - 3).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderRight(true).
+		Render(m.list.view(lw, m.height-3))
+
+	detailPane := lipgloss.NewStyle().
+		Width(rw).
+		Height(dh).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderBottom(true).
+		Render(m.detail.view(rw, dh))
+
+	streamPane := lipgloss.NewStyle().
+		Width(rw).
+		Height(sh).
+		Render(m.stream.view(rw, sh))
+
+	right := lipgloss.JoinVertical(lipgloss.Left, detailPane, streamPane)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, listPane, right)
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	title := titleStyle.Render("yadokari - Docker Sandboxes TUI")
+
+	toast := ""
+	if m.toast != "" {
+		toast = "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render("⚠ "+m.toast)
+	}
+
+	return title + "\n" + body + toast
 }
 
 // レイアウト計算ヘルパー
