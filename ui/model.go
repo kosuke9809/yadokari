@@ -84,7 +84,7 @@ func fetchSandboxes(client sandbox.Client) tea.Cmd {
 	}
 }
 
-func readNextLine(r io.Reader, buf *bufio.Reader) tea.Cmd {
+func readNextLine(_ io.Reader, buf *bufio.Reader) tea.Cmd {
 	return func() tea.Msg {
 		line, err := buf.ReadString('\n')
 		if len(line) > 0 {
