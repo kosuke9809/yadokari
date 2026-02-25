@@ -19,7 +19,7 @@ func (m detailModel) toggleRaw() detailModel {
 	return m
 }
 
-func (m detailModel) view(width, height int) string {
+func (m detailModel) view(_, _ int) string {
 	if m.sandbox.ID == "" {
 		return "No sandbox selected\n"
 	}

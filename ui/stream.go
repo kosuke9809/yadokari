@@ -41,6 +41,6 @@ func (m streamModel) update(msg tea.KeyMsg) (streamModel, tea.Cmd) {
 	return m, cmd
 }
 
-func (m streamModel) view(width, height int) string {
+func (m streamModel) view(_, _ int) string {
 	return "STREAM\n" + m.viewport.View()
 }

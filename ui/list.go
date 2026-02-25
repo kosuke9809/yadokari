@@ -28,10 +28,10 @@ func (m listModel) selected() *sandbox.Sandbox {
 	return &s
 }
 
-func (m listModel) update(msg tea.KeyMsg) (listModel, tea.Cmd) {
+func (m listModel) update(_ tea.KeyMsg) (listModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m listModel) view(width, height int) string {
+func (m listModel) view(_, _ int) string {
 	return "SANDBOX LIST\n"
 }
