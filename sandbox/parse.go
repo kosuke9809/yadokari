@@ -52,6 +52,6 @@ func normalizeState(s string) State {
 
 // assessRisk はCLIから取れる情報でRiskを暫定判定する
 // MVPでは情報不足なので RiskDev をデフォルトにする
-func assessRisk(vm rawVM) Risk {
+func assessRisk(_ rawVM) Risk {
 	return RiskDev
 }
