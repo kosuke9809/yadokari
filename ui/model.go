@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"bufio"
 	"context"
+	"io"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -23,18 +26,23 @@ type sandboxesUpdatedMsg struct{ sandboxes []sandbox.Sandbox }
 type sandboxErrMsg struct{ err error }
 type tickMsg time.Time
 type toastClearMsg struct{}
+type logLineMsg struct{ line string }
+type logErrMsg struct{ err error }
+type logDoneMsg struct{}
 
 // Model はトップレベルの Bubble Tea モデル
 type Model struct {
-	list    listModel
-	detail  detailModel
-	stream  streamModel
-	confirm confirmModel
-	focus   Focus
-	toast   string
-	client  sandbox.Client
-	width   int
-	height  int
+	list      listModel
+	detail    detailModel
+	stream    streamModel
+	confirm   confirmModel
+	focus     Focus
+	toast     string
+	client    sandbox.Client
+	width     int
+	height    int
+	logReader io.ReadCloser
+	logBuf    *bufio.Reader
 }
 
 // New は CLIClient を使う本番用コンストラクタ
@@ -75,6 +83,22 @@ func fetchSandboxes(client sandbox.Client) tea.Cmd {
 	}
 }
 
+func readNextLine(r io.Reader, buf *bufio.Reader) tea.Cmd {
+	return func() tea.Msg {
+		line, err := buf.ReadString('\n')
+		if len(line) > 0 {
+			return logLineMsg{line: strings.TrimRight(line, "\n")}
+		}
+		if err != nil {
+			if err == io.EOF {
+				return logDoneMsg{}
+			}
+			return logErrMsg{err}
+		}
+		return logDoneMsg{}
+	}
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -101,6 +125,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case toastClearMsg:
 		m.toast = ""
+		return m, nil
+
+	case logLineMsg:
+		m.stream = m.stream.addLine(msg.line)
+		return m, readNextLine(m.logReader, m.logBuf)
+
+	case logErrMsg:
+		if msg.err.Error() != "logs not supported by docker sandbox CLI" {
+			return m.showToast(msg.err.Error())
+		}
+		return m, nil
+
+	case logDoneMsg:
+		if m.logReader != nil {
+			m.logReader.Close()
+			m.logReader = nil
+			m.logBuf = nil
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -146,8 +188,27 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keys.RawInspect):
 		m.detail = m.detail.toggleRaw()
 	case key.Matches(msg, keys.Logs):
-		m.focus = FocusStream
-		m.stream = m.stream.clear().setMode(StreamLogs)
+		if s := m.list.selected(); s != nil {
+			// 既存のログリーダーを閉じる
+			if m.logReader != nil {
+				m.logReader.Close()
+				m.logReader = nil
+				m.logBuf = nil
+			}
+			m.focus = FocusStream
+			m.stream = m.stream.clear().setMode(StreamLogs)
+			r, err := m.client.Logs(context.Background(), s.ID)
+			if err != nil {
+				if err.Error() != "logs not supported by docker sandbox CLI" {
+					return m.showToast(err.Error())
+				}
+				m.stream = m.stream.addLine("[logs not supported for this sandbox]")
+				return m, nil
+			}
+			m.logReader = r
+			m.logBuf = bufio.NewReader(r)
+			return m, readNextLine(m.logReader, m.logBuf)
+		}
 	case key.Matches(msg, keys.Exec):
 		if s := m.list.selected(); s != nil {
 			return m, m.execShell(s.ID)
