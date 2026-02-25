@@ -72,3 +72,29 @@ func (c *CLIClient) Exec(_ context.Context, id string) (*exec.Cmd, error) {
 	cmd := exec.Command("docker", "sandbox", "exec", "-i", "-t", id, "/bin/sh")
 	return cmd, nil
 }
+
+// Start は docker sandbox run <name> で停止中のサンドボックスを起動する
+func (c *CLIClient) Start(ctx context.Context, id string) error {
+	_, err := c.run(ctx, "run", id)
+	return err
+}
+
+// Stop は docker sandbox stop <name> でサンドボックスを停止する
+func (c *CLIClient) Stop(ctx context.Context, id string) error {
+	_, err := c.run(ctx, "stop", id)
+	return err
+}
+
+// Restart は Stop → Start の順で再起動する
+func (c *CLIClient) Restart(ctx context.Context, id string) error {
+	if err := c.Stop(ctx, id); err != nil {
+		return err
+	}
+	return c.Start(ctx, id)
+}
+
+// Remove は docker sandbox rm <name> でサンドボックスを削除する
+func (c *CLIClient) Remove(ctx context.Context, id string) error {
+	_, err := c.run(ctx, "rm", id)
+	return err
+}
