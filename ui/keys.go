@@ -18,6 +18,7 @@ type keyMap struct {
 	Filter     key.Binding
 	Quit       key.Binding
 	Help       key.Binding
+	Back       key.Binding
 }
 
 var keys = keyMap{
@@ -36,4 +37,5 @@ var keys = keyMap{
 	Filter:     key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "filter")),
 	Quit:       key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
 	Help:       key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
+	Back:       key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 }

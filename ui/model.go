@@ -213,6 +213,9 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if s := m.list.selected(); s != nil {
 			return m, m.execShell(s.ID)
 		}
+	case key.Matches(msg, keys.ExecCmd):
+		// TODO: 1行コマンド実行モード（将来実装）
+		return m.showToast("ExecCmd not yet implemented")
 	default:
 		var cmd tea.Cmd
 		m.list, cmd = m.list.update(msg)
@@ -256,7 +259,11 @@ func (m Model) execShell(id string) tea.Cmd {
 }
 
 func (m Model) updateStream(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Task 10〜14 で実装
+	switch {
+	case key.Matches(msg, keys.Back):
+		m.focus = FocusList
+		return m, nil
+	}
 	var cmd tea.Cmd
 	m.stream, cmd = m.stream.update(msg)
 	return m, cmd
