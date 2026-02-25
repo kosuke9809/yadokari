@@ -26,14 +26,15 @@ type toastClearMsg struct{}
 
 // Model はトップレベルの Bubble Tea モデル
 type Model struct {
-	list   listModel
-	detail detailModel
-	stream streamModel
-	focus  Focus
-	toast  string
-	client sandbox.Client
-	width  int
-	height int
+	list    listModel
+	detail  detailModel
+	stream  streamModel
+	confirm confirmModel
+	focus   Focus
+	toast   string
+	client  sandbox.Client
+	width   int
+	height  int
 }
 
 // New は CLIClient を使う本番用コンストラクタ
@@ -92,6 +93,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case fetchSandboxesMsg:
+		return m, fetchSandboxes(m.client)
+
 	case sandboxErrMsg:
 		return m.showToast(msg.err.Error())
 
@@ -115,13 +119,79 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Task 8〜12 で実装
-	var cmd tea.Cmd
-	m.list, cmd = m.list.update(msg)
-	if selected := m.list.selected(); selected != nil {
-		m.detail = m.detail.setSandbox(*selected)
+	// confirm が表示中はダイアログに委譲
+	if m.confirm.visible {
+		var cmd tea.Cmd
+		m.confirm, cmd = m.confirm.update(msg)
+		return m, cmd
 	}
-	return m, cmd
+
+	switch {
+	case key.Matches(msg, keys.Start):
+		if s := m.list.selected(); s != nil {
+			return m, m.toggleStartStop(s)
+		}
+	case key.Matches(msg, keys.Restart):
+		if s := m.list.selected(); s != nil {
+			return m, sandboxOp(m.client.Restart, s.ID)
+		}
+	case key.Matches(msg, keys.Remove):
+		if s := m.list.selected(); s != nil {
+			id, name := s.ID, s.Name
+			m.confirm = m.confirm.show(
+				"Remove \""+name+"\"?",
+				func() tea.Cmd { return sandboxOp(m.client.Remove, id) },
+			)
+		}
+	case key.Matches(msg, keys.RawInspect):
+		m.detail = m.detail.toggleRaw()
+	case key.Matches(msg, keys.Logs):
+		m.focus = FocusStream
+		m.stream = m.stream.clear().setMode(StreamLogs)
+	case key.Matches(msg, keys.Exec):
+		if s := m.list.selected(); s != nil {
+			return m, m.execShell(s.ID)
+		}
+	default:
+		var cmd tea.Cmd
+		m.list, cmd = m.list.update(msg)
+		if selected := m.list.selected(); selected != nil {
+			m.detail = m.detail.setSandbox(*selected)
+		}
+		return m, cmd
+	}
+	return m, nil
+}
+
+func sandboxOp(fn func(context.Context, string) error, id string) tea.Cmd {
+	return func() tea.Msg {
+		if err := fn(context.Background(), id); err != nil {
+			return sandboxErrMsg{err}
+		}
+		return fetchSandboxesMsg{}
+	}
+}
+
+type fetchSandboxesMsg struct{}
+
+func (m Model) toggleStartStop(s *sandbox.Sandbox) tea.Cmd {
+	if s.State == sandbox.StateRunning {
+		return sandboxOp(m.client.Stop, s.ID)
+	}
+	return sandboxOp(m.client.Start, s.ID)
+}
+
+func (m Model) execShell(id string) tea.Cmd {
+	cmd, err := m.client.Exec(context.Background(), id)
+	if err != nil {
+		return func() tea.Msg { return sandboxErrMsg{err} }
+	}
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		if err != nil {
+			return sandboxErrMsg{err}
+		}
+		return nil
+	})
 }
 
 func (m Model) updateStream(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -178,7 +248,11 @@ func (m Model) View() string {
 		toast = "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render("⚠ "+m.toast)
 	}
 
-	return title + "\n" + body + toast
+	result := title + "\n" + body + toast
+	if m.confirm.visible {
+		result += "\n\n" + m.confirm.view()
+	}
+	return result
 }
 
 // レイアウト計算ヘルパー
