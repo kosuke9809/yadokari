@@ -80,7 +80,7 @@ func (m detailModel) rawView(_ int) string {
 	}
 	var pretty []byte
 	var err error
-	var v interface{}
+	var v any
 	if err = json.Unmarshal(m.sandbox.Raw, &v); err == nil {
 		pretty, err = json.MarshalIndent(v, "", "  ")
 	}
