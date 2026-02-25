@@ -36,6 +36,7 @@ type Model struct {
 	detail    detailModel
 	stream    streamModel
 	confirm   confirmModel
+	help      helpModel
 	focus     Focus
 	toast     string
 	client    sandbox.Client
@@ -151,6 +152,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case key.Matches(msg, keys.Refresh):
 			return m, fetchSandboxes(m.client)
+		case key.Matches(msg, keys.Help):
+			m.help = m.help.toggle()
+			return m, nil
 		}
 		if m.focus == FocusList {
 			return m.updateList(msg)
@@ -319,6 +323,9 @@ func (m Model) View() string {
 	result := title + "\n" + body + toast
 	if m.confirm.visible {
 		result += "\n\n" + m.confirm.view()
+	}
+	if m.help.visible {
+		result += "\n\n" + m.help.view()
 	}
 	return result
 }
